@@ -1,0 +1,139 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String          @id @default(uuid())
+  name         String
+  email        String          @unique
+  passwordHash String
+  role         String          // ADMIN, SALES, WAREHOUSE, ACCOUNTS
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  followUps    FollowUp[]
+  challans     Challan[]
+  stockMovements StockMovement[]
+  leadStageHistories LeadStageHistory[]
+
+  @@index([email])
+}
+
+model Customer {
+  id           String          @id @default(uuid())
+  customerName String
+  mobileNumber String          @unique
+  email        String          @unique
+  businessName String
+  gstNumber    String?
+  customerType String          // RETAIL, WHOLESALE, DISTRIBUTOR
+  address      String
+  status       String          @default("LEAD") // LEAD, ACTIVE, INACTIVE
+  leadStage    String          @default("LEAD") // LEAD, CONTACTED, PROPOSAL, NEGOTIATION, WON, LOST
+  followUpDate DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  followUps    FollowUp[]
+  challans     Challan[]
+  leadStageHistories LeadStageHistory[]
+
+  @@index([mobileNumber])
+  @@index([email])
+}
+
+model FollowUp {
+  id            String          @id @default(uuid())
+  customerId    String
+  customer      Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  notes         String
+  followUpDate  DateTime
+  contactMethod String          @default("CALL") // CALL, EMAIL, MEETING, SMS
+  createdBy     String
+  creator       User            @relation(fields: [createdBy], references: [id])
+  createdAt     DateTime        @default(now())
+
+  @@index([customerId])
+}
+
+model Product {
+  id                String          @id @default(uuid())
+  name              String
+  sku               String          @unique
+  category          String
+  unitPrice         Float
+  currentStock      Int             @default(0)
+  minimumStock      Int             @default(0)
+  warehouseLocation String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  stockMovements    StockMovement[]
+  challanItems      ChallanItem[]
+
+  @@index([sku])
+}
+
+model StockMovement {
+  id              String       @id @default(uuid())
+  productId       String
+  product         Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantityChanged Int
+  movementType    String       // IN, OUT
+  reason          String
+  createdBy       String
+  creator         User         @relation(fields: [createdBy], references: [id])
+  createdAt       DateTime     @default(now())
+
+  @@index([productId])
+}
+
+model Challan {
+  id            String        @id @default(uuid())
+  challanNumber String        @unique
+  customerId    String
+  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  status        String        @default("DRAFT") // DRAFT, CONFIRMED, CANCELLED
+  totalQuantity Int           @default(0)
+  totalAmount   Float         @default(0.0)
+  createdBy     String
+  creator       User          @relation(fields: [createdBy], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  challanItems  ChallanItem[]
+
+  @@index([challanNumber])
+  @@index([status])
+}
+
+model ChallanItem {
+  id                  String   @id @default(uuid())
+  challanId           String
+  challan             Challan  @relation(fields: [challanId], references: [id], onDelete: Cascade)
+  productId           String
+  product             Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productNameSnapshot String
+  skuSnapshot         String
+  unitPriceSnapshot   Float
+  quantity            Int
+  totalPrice          Float
+
+  @@index([challanId])
+  @@index([productId])
+}
+
+model LeadStageHistory {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  oldStage   String
+  newStage   String
+  changedBy  String
+  changer    User     @relation(fields: [changedBy], references: [id])
+  changedAt  DateTime @default(now())
+
+  @@index([customerId])
+  @@index([changedBy])
+}
